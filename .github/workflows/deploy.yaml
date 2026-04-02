@@ -47,7 +47,7 @@ jobs:
         run: pip install aws-sam-cli
 
       - name: SAM Build
-        run: sam build --use-container
+        run: sam build --use-container --no-cached
 
       - name: SAM Deploy
         run: |
