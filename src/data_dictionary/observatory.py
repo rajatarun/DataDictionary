@@ -50,12 +50,12 @@ async def propose(tool_name: str, tool_args: Dict[str, Any], prompt: str) -> Dic
     return result
 
 
-def verify(proposal_id: str, commit_token: str, tool_name: str, tool_args: Dict[str, Any]):
+async def verify(proposal_id: str, commit_token: str, tool_name: str, tool_args: Dict[str, Any]):
     """Verify a commit token against its proposal.
 
     Returns a CommitVerification object with .ok (bool) and optional .failure_reason.
     """
-    return _verifier.verify_commit(
+    return await _verifier.verify_commit(
         proposal_id=proposal_id,
         commit_token=commit_token,
         tool_name=tool_name,
