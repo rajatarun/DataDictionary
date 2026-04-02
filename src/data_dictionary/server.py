@@ -205,5 +205,5 @@ async def get_elements_by_context(context: str) -> List[Dict[str, Any]]:
 # Lambda entry point via Mangum
 # ---------------------------------------------------------------------------
 
-_asgi_app = mcp.streamable_http_app()
+_asgi_app = mcp.streamable_http_app(stateless_http=True)
 lambda_handler = Mangum(_asgi_app, lifespan="off")
