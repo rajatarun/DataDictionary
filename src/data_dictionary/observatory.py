@@ -10,12 +10,13 @@ from mcp_observatory.proposal_commit import CommitTokenManager
 from mcp_observatory.proposal_commit.verifier import CommitVerifier
 
 _SECRET_KEY = os.environ.get("OBSERVATORY_SECRET_KEY", "change-me-in-production")
+_BLOCK_THRESHOLD = float(os.environ.get("OBSERVATORY_BLOCK_THRESHOLD", "0.45"))
 
 _storage = InMemoryStorage()
 _token_manager = CommitTokenManager(secret=_SECRET_KEY)
 _proposer = ToolProposer(
     storage=_storage,
-    config=ProposalConfig(),
+    config=ProposalConfig(block_threshold=_BLOCK_THRESHOLD),
     token_manager=_token_manager,
 )
 _verifier = CommitVerifier(
