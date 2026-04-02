@@ -207,6 +207,4 @@ async def get_elements_by_context(context: str) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 _asgi_app = mcp.http_app(stateless_http=True)
-# Keep ASGI lifespan enabled so FastMCP can initialize its StreamableHTTP
-# session manager task group on startup.
-lambda_handler = Mangum(_asgi_app, lifespan="auto")
+lambda_handler = Mangum(_asgi_app, lifespan="off")
