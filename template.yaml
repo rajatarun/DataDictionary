@@ -90,7 +90,6 @@ Resources:
           AllowMethods:
             - POST
             - GET
-            - OPTIONS
           AllowHeaders:
             - "*"
       Policies:
