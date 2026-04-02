@@ -1,0 +1,71 @@
+name: Deploy DataDictionary MCP Server
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: Deployment stage
+        required: true
+        default: prod
+        type: choice
+        options: [dev, staging, prod]
+
+permissions:
+  id-token: write   # Required for OIDC token issuance
+  contents: read
+
+env:
+  ASSUME_ROLE_ARN: arn:aws:iam::239571291755:role/teamweave-github-actions-sam-deployer
+  AWS_REGION: us-east-1
+  STAGE: ${{ github.event.inputs.stage || 'prod' }}
+
+jobs:
+  deploy:
+    name: SAM Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ASSUME_ROLE_ARN }}
+          role-session-name: DataDictionaryDeploy-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install AWS SAM CLI
+        run: pip install aws-sam-cli
+
+      - name: SAM Build
+        run: sam build --use-container
+
+      - name: SAM Deploy
+        run: |
+          sam deploy \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --stack-name "data-dictionary-mcp-${{ env.STAGE }}" \
+            --region ${{ env.AWS_REGION }} \
+            --capabilities CAPABILITY_IAM \
+            --resolve-s3 \
+            --parameter-overrides \
+              Stage=${{ env.STAGE }} \
+              ObservatorySecretKey=${{ secrets.OBSERVATORY_SECRET_KEY }} \
+              BedrockModelId=${{ vars.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0' }}
+
+      - name: Output Function URL
+        run: |
+          aws cloudformation describe-stacks \
+            --stack-name "data-dictionary-mcp-${{ env.STAGE }}" \
+            --query "Stacks[0].Outputs[?OutputKey=='DataDictionaryFunctionUrl'].OutputValue" \
+            --output text

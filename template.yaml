@@ -1,0 +1,131 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: DataDictionary MCP Server — Lambda + DynamoDB
+
+# ---------------------------------------------------------------------------
+# Parameters
+# ---------------------------------------------------------------------------
+Parameters:
+  Stage:
+    Type: String
+    Default: prod
+    AllowedValues: [dev, staging, prod]
+    Description: Deployment stage
+
+  ObservatorySecretKey:
+    Type: String
+    NoEcho: true
+    Description: HMAC secret key used by MCP Observatory for commit token signing
+
+  BedrockModelId:
+    Type: String
+    Default: anthropic.claude-3-haiku-20240307-v1:0
+    Description: Amazon Bedrock model ID used to generate DataElement definitions
+
+# ---------------------------------------------------------------------------
+# Globals
+# ---------------------------------------------------------------------------
+Globals:
+  Function:
+    Runtime: python3.12
+    MemorySize: 512
+    Timeout: 60
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref DataDictionaryTable
+        STAGE: !Ref Stage
+        OBSERVATORY_SECRET_KEY: !Ref ObservatorySecretKey
+        BEDROCK_MODEL_ID: !Ref BedrockModelId
+        AWS_ACCOUNT_ID: !Ref AWS::AccountId
+
+# ---------------------------------------------------------------------------
+# Resources
+# ---------------------------------------------------------------------------
+Resources:
+
+  # ---- DynamoDB Table ----
+  DataDictionaryTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub "DataDictionary-${Stage}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: dataElement
+          AttributeType: S
+        - AttributeName: context
+          AttributeType: S
+      KeySchema:
+        - AttributeName: dataElement
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: context-index
+          KeySchema:
+            - AttributeName: context
+              KeyType: HASH
+            - AttributeName: dataElement
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  # ---- Lambda Function ----
+  DataDictionaryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "data-dictionary-mcp-${Stage}"
+      CodeUri: src/
+      Handler: data_dictionary.server.lambda_handler
+      Description: DataDictionary MCP Server — propose/commit write, direct read from DynamoDB
+      FunctionUrlConfig:
+        AuthType: NONE
+        InvokeMode: BUFFERED
+        Cors:
+          AllowOrigins:
+            - "*"
+          AllowMethods:
+            - POST
+            - GET
+            - OPTIONS
+          AllowHeaders:
+            - "*"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DataDictionaryTable
+        - Statement:
+            - Sid: BedrockInvokeModel
+              Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource:
+                - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/${BedrockModelId}"
+      Tags:
+        Project: DataDictionary
+        Stage: !Ref Stage
+
+# ---------------------------------------------------------------------------
+# Outputs
+# ---------------------------------------------------------------------------
+Outputs:
+  DataDictionaryFunctionUrl:
+    Description: Lambda Function URL for the DataDictionary MCP Server
+    Value: !GetAtt DataDictionaryFunctionUrl.FunctionUrl
+    Export:
+      Name: !Sub "DataDictionaryFunctionUrl-${Stage}"
+
+  DataDictionaryTableName:
+    Description: DynamoDB table name
+    Value: !Ref DataDictionaryTable
+    Export:
+      Name: !Sub "DataDictionaryTableName-${Stage}"
+
+  DataDictionaryFunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt DataDictionaryFunction.Arn
+    Export:
+      Name: !Sub "DataDictionaryFunctionArn-${Stage}"

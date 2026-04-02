@@ -1,0 +1,38 @@
+# SAM CLI deploy configuration
+# Run: sam deploy --config-env prod
+
+version = 0.1
+
+[default.global.parameters]
+stack_name = "data-dictionary-mcp"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.deploy.parameters]
+stack_name        = "data-dictionary-mcp"
+region            = "us-east-1"
+capabilities      = "CAPABILITY_IAM"
+resolve_s3        = true
+resolve_image_repos = false
+confirm_changeset = false
+fail_on_empty_changeset = false
+
+[prod.deploy.parameters]
+stack_name              = "data-dictionary-mcp-prod"
+region                  = "us-east-1"
+capabilities            = "CAPABILITY_IAM"
+resolve_s3              = true
+confirm_changeset       = false
+fail_on_empty_changeset = false
+parameter_overrides     = "Stage=prod"
+
+[dev.deploy.parameters]
+stack_name              = "data-dictionary-mcp-dev"
+region                  = "us-east-1"
+capabilities            = "CAPABILITY_IAM"
+resolve_s3              = true
+confirm_changeset       = false
+fail_on_empty_changeset = false
+parameter_overrides     = "Stage=dev"
