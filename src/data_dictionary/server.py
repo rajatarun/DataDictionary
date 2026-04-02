@@ -205,6 +205,13 @@ async def get_elements_by_context(context: str) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Lambda entry point via Mangum
 # ---------------------------------------------------------------------------
+# http_app() is called per-invocation so each Lambda request gets a fresh
+# StreamableHTTPSessionManager. The manager's task group must be initialized
+# via ASGI lifespan (lifespan="auto"), but it raises on a second .run() call
+# on the same instance — which happens on warm container reuse when _asgi_app
+# is module-level. Creating it fresh per invocation avoids that entirely.
+# The FastMCP instance (mcp) and all tool registrations are still module-level.
 
-_asgi_app = mcp.http_app(stateless_http=True)
-lambda_handler = Mangum(_asgi_app, lifespan="off")
+def lambda_handler(event, context):
+    app = mcp.http_app(stateless_http=True)
+    return Mangum(app, lifespan="auto")(event, context)
