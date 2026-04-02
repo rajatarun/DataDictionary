@@ -206,10 +206,7 @@ async def get_elements_by_context(context: str) -> List[Dict[str, Any]]:
 # Lambda entry point via Mangum
 # ---------------------------------------------------------------------------
 
-try:
-    _asgi_app = mcp.streamable_http_app(stateless_http=True)
-except TypeError:
-    _asgi_app = mcp.streamable_http_app()
+_asgi_app = mcp.streamable_http_app(stateless_http=True)
 # Keep ASGI lifespan enabled so FastMCP can initialize its StreamableHTTP
 # session manager task group on startup.
 lambda_handler = Mangum(_asgi_app, lifespan="auto")
