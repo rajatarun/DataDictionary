@@ -28,14 +28,25 @@ async def propose(tool_name: str, tool_args: Dict[str, Any], prompt: str) -> Dic
     """Propose a write operation via MCP Observatory.
 
     Returns a dict with keys: status, proposal_id, commit_token (if allowed), signals.
+    Persists proposal data to DynamoDB so it survives across Lambda invocations.
     """
-    return await _proposer.propose(
+    result = await _proposer.propose(
         tool_name=tool_name,
         tool_args=tool_args,
         prompt=prompt,
         candidate_output_a=f"Store data element: {tool_args.get('dataElement', '')}",
         candidate_output_b=f"Add {tool_args.get('dataElement', '')} to DataDictionary",
     )
+
+    proposal_id = result.get("proposal_id")
+    if proposal_id:
+        from . import dynamo_client
+        dynamo_client.save_proposal(
+            proposal_id,
+            {"tool_name": tool_name, "tool_args": tool_args},
+        )
+
+    return result
 
 
 def verify(proposal_id: str, commit_token: str, tool_name: str, tool_args: Dict[str, Any]):
@@ -52,5 +63,6 @@ def verify(proposal_id: str, commit_token: str, tool_name: str, tool_args: Dict[
 
 
 async def get_proposal(proposal_id: str) -> Dict[str, Any] | None:
-    """Retrieve a stored proposal by ID to recover tool_args on commit."""
-    return await _storage.get_proposal(proposal_id)
+    """Retrieve a stored proposal by ID from DynamoDB."""
+    from . import dynamo_client
+    return dynamo_client.get_proposal_data(proposal_id)
