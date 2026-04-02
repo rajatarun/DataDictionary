@@ -17,6 +17,13 @@ Parameters:
     NoEcho: true
     Description: HMAC secret key used by MCP Observatory for commit token signing
 
+  ObservatoryBlockThreshold:
+    Type: String
+    Default: "0.45"
+    Description: >
+      Composite risk score threshold above which proposals are blocked (0.0–1.0).
+      Lower = stricter. Set to 1.0 to allow all proposals through.
+
   BedrockModelId:
     Type: String
     Default: anthropic.claude-3-haiku-20240307-v1:0
@@ -36,6 +43,7 @@ Globals:
         PROPOSALS_TABLE_NAME: !Ref ProposalsTable
         STAGE: !Ref Stage
         OBSERVATORY_SECRET_KEY: !Ref ObservatorySecretKey
+        OBSERVATORY_BLOCK_THRESHOLD: !Ref ObservatoryBlockThreshold
         BEDROCK_MODEL_ID: !Ref BedrockModelId
         AWS_ACCOUNT_ID: !Ref AWS::AccountId
 
