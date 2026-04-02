@@ -31,11 +31,10 @@ include what the field represents, its purpose, lifecycle, and important semanti
 Return ONLY the raw JSON object. No code blocks, no markdown, no explanation."""
 
 
-def _get_bedrock_client():
-    return boto3.client(
-        "bedrock-runtime",
-        region_name=os.environ.get("AWS_REGION", "us-east-1"),
-    )
+_bedrock_client = boto3.client(
+    "bedrock-runtime",
+    region_name=os.environ.get("AWS_REGION", "us-east-1"),
+)
 
 
 def _extract_json(text: str) -> Dict[str, Any]:
@@ -48,9 +47,7 @@ def _extract_json(text: str) -> Dict[str, Any]:
 
 
 async def generate_data_element(prompt: str) -> DataElement:
-    client = _get_bedrock_client()
-
-    response = client.converse(
+    response = _bedrock_client.converse(
         modelId=BEDROCK_MODEL_ID,
         system=[{"text": SYSTEM_PROMPT}],
         messages=[

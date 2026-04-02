@@ -28,11 +28,12 @@ Parameters:
 Globals:
   Function:
     Runtime: python3.12
-    MemorySize: 512
-    Timeout: 60
+    MemorySize: 1024
+    Timeout: 120
     Environment:
       Variables:
         TABLE_NAME: !Ref DataDictionaryTable
+        PROPOSALS_TABLE_NAME: !Ref ProposalsTable
         STAGE: !Ref Stage
         OBSERVATORY_SECRET_KEY: !Ref ObservatorySecretKey
         BEDROCK_MODEL_ID: !Ref BedrockModelId
@@ -73,6 +74,26 @@ Resources:
       SSESpecification:
         SSEEnabled: true
 
+  # ---- Proposals Table (ephemeral, TTL-enabled for propose/commit workflow) ----
+  ProposalsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Sub "DataDictionaryProposals-${Stage}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: proposal_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: proposal_id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: _expires_at
+        Enabled: true
+      SSESpecification:
+        SSEEnabled: true
+
   # ---- Lambda Function ----
   DataDictionaryFunction:
     Type: AWS::Serverless::Function
@@ -95,6 +116,8 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DataDictionaryTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProposalsTable
         - Statement:
             - Sid: BedrockInvokeModel
               Effect: Allow
