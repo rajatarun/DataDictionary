@@ -86,7 +86,8 @@ async def commit_data_element(proposal_id: str, commit_token: str) -> Dict[str, 
         return {"error": f"Proposal '{proposal_id}' not found or expired."}
 
     tool_args: Dict[str, Any] = proposal.get("tool_args", {})
-    verification = observatory.verify(proposal_id, commit_token, tool_args)
+    tool_name = proposal.get("tool_name", "commit_data_element")
+    verification = observatory.verify(proposal_id, commit_token, tool_name, tool_args)
     if not verification.ok:
         return {
             "error": "Commit verification failed.",

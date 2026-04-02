@@ -6,14 +6,13 @@ from typing import Any, Dict
 from mcp_observatory import ToolProposer
 from mcp_observatory.proposal_commit.proposer import ProposalConfig
 from mcp_observatory.proposal_commit.storage import InMemoryStorage
+from mcp_observatory.proposal_commit import CommitTokenManager
 from mcp_observatory.proposal_commit.verifier import CommitVerifier
-from mcp_observatory.token.issuer import CommitTokenConfig, CommitTokenManager
 
 _SECRET_KEY = os.environ.get("OBSERVATORY_SECRET_KEY", "change-me-in-production")
 
 _storage = InMemoryStorage()
-_token_config = CommitTokenConfig(secret_key=_SECRET_KEY)
-_token_manager = CommitTokenManager(config=_token_config)
+_token_manager = CommitTokenManager(secret=_SECRET_KEY)
 _proposer = ToolProposer(
     storage=_storage,
     config=ProposalConfig(),
@@ -39,7 +38,7 @@ async def propose(tool_name: str, tool_args: Dict[str, Any], prompt: str) -> Dic
     )
 
 
-def verify(proposal_id: str, commit_token: str, tool_args: Dict[str, Any]):
+def verify(proposal_id: str, commit_token: str, tool_name: str, tool_args: Dict[str, Any]):
     """Verify a commit token against its proposal.
 
     Returns a CommitVerification object with .ok (bool) and optional .failure_reason.
@@ -47,6 +46,7 @@ def verify(proposal_id: str, commit_token: str, tool_args: Dict[str, Any]):
     return _verifier.verify_commit(
         proposal_id=proposal_id,
         commit_token=commit_token,
+        tool_name=tool_name,
         tool_args=tool_args,
     )
 
