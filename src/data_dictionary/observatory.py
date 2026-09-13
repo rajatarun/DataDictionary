@@ -1,27 +1,20 @@
 from __future__ import annotations
 
-import os
 from typing import Any, Dict
 
-from mcp_observatory import ToolProposer
-from mcp_observatory.proposal_commit.proposer import ProposalConfig
-from mcp_observatory.proposal_commit.storage import InMemoryStorage
-from mcp_observatory.proposal_commit import CommitTokenManager
-from mcp_observatory.proposal_commit.verifier import CommitVerifier
+from mcp_observatory.aws import build_gate
 
-_SECRET_KEY = os.environ.get("OBSERVATORY_SECRET_KEY", "change-me-in-production")
-_BLOCK_THRESHOLD = float(os.environ.get("OBSERVATORY_BLOCK_THRESHOLD", "0.45"))
-
-_storage = InMemoryStorage()
-_token_manager = CommitTokenManager(secret=_SECRET_KEY)
-_proposer = ToolProposer(
-    storage=_storage,
-    config=ProposalConfig(block_threshold=_BLOCK_THRESHOLD),
-    token_manager=_token_manager,
-)
-_verifier = CommitVerifier(
-    storage=_storage,
-    token_manager=_token_manager,
+# mcp-observatory>=0.3.0: build_gate wires InMemoryStorage/CommitTokenManager/
+# ToolProposer/CommitVerifier exactly as this module used to by hand, but
+# resolves the HMAC secret through mcp_observatory.utils.secrets.resolve_secret,
+# which raises InsecureDefaultSecretError at construction time instead of the
+# hardcoded "change-me-in-production" fallback this module previously used
+# when OBSERVATORY_SECRET_KEY was unset. Set OBSERVATORY_SECRET_KEY in every
+# deployed environment; set MCP_OBSERVATORY_ALLOW_DEV_SECRET=1 for local runs
+# and tests only.
+_proposer, _verifier, _token_manager = build_gate(
+    secret_env="OBSERVATORY_SECRET_KEY",
+    block_threshold_env="OBSERVATORY_BLOCK_THRESHOLD",
 )
 
 
