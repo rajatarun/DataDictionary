@@ -2,4 +2,4 @@ fastmcp
 boto3>=1.34.0
 pydantic>=2.0.0
 mangum>=0.19.0
-mcp-observatory @ git+https://github.com/rajatarun/mcp-observatory.git
+mcp-observatory[aws]>=0.3.0
