@@ -81,7 +81,7 @@ def test_vendored_contract_is_the_shared_version():
     """A vendored copy that has drifted is worse than no copy at all."""
     contract = load_contract()
     assert contract["contract"] == "observatory_metrics_item"
-    assert contract["version"] == "1.0.0"
+    assert contract["version"] == "2.0.0"
     assert contract["key_schema"] == {
         **contract["key_schema"],
         "partition_key": "pk",
@@ -178,20 +178,57 @@ def test_local_writers_are_not_shared_table_items(dynamo_client):
 
 
 # ---------------------------------------------------------------------------
-# 4. Which namespace a future exporter would have to use to be read
+# 4. What a future exporter here would have to emit to be read
 # ---------------------------------------------------------------------------
 
 
-def test_readable_namespace_is_recorded_for_any_future_exporter():
-    """Records which namespace actually reaches a dashboard, as of contract 1.0.0.
+def test_contract_records_what_a_future_exporter_must_emit():
+    """Under contract 2.0.0 the answer changed, so this records the new one.
 
-    Getting the key spelling right only makes a write *succeed*. Choosing a
-    namespace no reader enumerates makes it succeed and stay invisible — which
-    is the state ToolWeave is in even after its key-case fix. Anything added
-    here should target ``OBSERVATORY#{operation}``, the only namespace with
-    registered readers, unless the portfolio-wide namespace decision has landed
-    and this contract has been re-vendored with a different answer.
+    Version 1.0.0 said: pick ``OBSERVATORY#{operation}``, the only namespace
+    any reader enumerated, because a write could succeed and still be
+    invisible if you chose a namespace nothing queried. That advice is now
+    obsolete. Reads go through the SpanTimelineIndex GSI, keyed on
+    ``span_date`` and ``timestamp``, so the partition key is the writer's own
+    business and no namespace choice can hide a row.
+
+    What can still hide a row is omitting an index key: a GSI indexes only
+    items carrying both of them. So the rule for anything added here is no
+    longer "choose the right prefix" but "emit span_date, timestamp and
+    operation" — invariants I6 to I8, which ``check_item`` enforces.
     """
-    assert readers_for("OBSERVATORY#invoke_model") != []
-    assert readers_for("WRAPPER#invoke_agent") == []
-    assert readers_for("SPAN#some_tool") == []
+    contract = load_contract()
+    gsi = contract["gsi"]
+    assert gsi["partition_key"] == "span_date"
+    assert gsi["sort_key"] == "timestamp"
+
+    for key in (gsi["partition_key"], gsi["sort_key"], "operation"):
+        assert key in contract["required_attributes"], (
+            f"{key} must be required, not merely recommended: a writer that omits it "
+            "is absent from the index and therefore from every dashboard"
+        )
+
+    # An otherwise perfect row that omits the index keys is still invisible,
+    # and the contract must say so rather than pass it.
+    invisible = {
+        "pk": "OBSERVATORY#invoke_model",
+        "sk": "2026-09-13T10:00:00.000000#trace-1",
+        "ttl": 99999999999,
+    }
+    problems = check_item(invisible, contract)
+    assert any("I6" in p for p in problems), problems
+
+
+def test_namespace_reachability_is_now_historical():
+    """``readers_for`` is kept, but it answers a question about the past.
+
+    Rows written before this migration carry no ``span_date``, are not in the
+    index, and are still reachable only by their original partition key. That
+    is the only thing this function is good for now, and the contract marks
+    every namespace ``legacy-informational`` to say so.
+    """
+    contract = load_contract()
+    assert readers_for("OBSERVATORY#invoke_model", contract) != []
+    assert readers_for("SPAN#some_tool", contract) == []
+    for entry in contract["namespace_registry"].values():
+        assert entry["status"] == "legacy-informational"
